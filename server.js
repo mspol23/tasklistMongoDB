@@ -28,12 +28,22 @@ async function main() {
         },
     });
 
+    const customListSchema = new mongoose.Schema({
+        listName: {
+            type: String,
+            required: true
+        },
+        itemsList: [taskSchema],
+    });
+
     const Task = mongoose.model("Task", taskSchema);
+    const CustomList = mongoose.model("CustomList", customListSchema);
 
     app.get("/", async (req, res) => {
 
         const taskItems = await Task.find({check: false});
-        const checkItems = await Task.find({check: true})
+        const checkItems = await Task.find({check: true});
+        const title = "Today";
         if (taskItems.length < 1 && checkItems.length < 1) {
             const task1 = new Task({
                 task: "Do the bed.",
@@ -45,13 +55,14 @@ async function main() {
                 task: "Prepare breakfast.",
             });
             const tasksIn = await Task.insertMany([task1, task2, task3]);
-            console.log(tasksIn);
+            // console.log(tasksIn);
         }
         const taskArray = taskItems.map(item => item.task);
         const checkArray = checkItems.map(task => task.task);
         res.render("index.ejs", {
             toDos: taskArray,
             checkedTask: checkArray,
+            title: title,
         });
 
     });
@@ -62,6 +73,7 @@ async function main() {
         const taskItems = await Task.find({check: false});
         const checkItems = await Task.find({check: true});
         const checkDuplicity = taskItems.filter(obj => obj.task === newToDo);
+        const title = "Today"
         // console.log(checkDuplicity);
         let errorMsg
         if (!newToDo) {
@@ -77,8 +89,7 @@ async function main() {
             const newTask = await new Task({
                 task: newToDo,
             }).save()
-                console.log(newTask);
-                res.redirect("/");
+                // console.log(newTask);
         };
         async function runErrorRender() {
             const taskArray = taskItems.map(item => item.task);
@@ -88,6 +99,7 @@ async function main() {
                 errorMsg: errorMsg,
                 toDos: taskArray,
                 checkedTask: checkArray,
+                title: title
             });
         };
 
@@ -109,10 +121,10 @@ async function main() {
     app.get("/check?:index", async (req, res) => {
 
         const indexQuery = Number(req.query.index);
-        console.log(indexQuery);
+        // console.log(indexQuery);
         const findAll = await Task.find({check: false});
         const updateTask = await Task.updateOne({_id: findAll[indexQuery]._id}, {check: true});
-        console.log(updateTask);
+        // console.log(updateTask);
         res.redirect("/");
 
     });
@@ -122,9 +134,117 @@ async function main() {
         const indexQuery = Number(req.query.index);
         const checkTasks = await Task.find({check: true});
         const updateTask = await Task.deleteOne({_id: checkTasks[indexQuery]._id});
-        console.log(updateTask)
+        // console.log(updateTask)
         res.redirect("/")
     });
+
+    // User custom routes
+    app.get("/:customRoute", async (req, res) => {
+        const routeName = req.params.customRoute;
+        const routeNameLower = routeName.toLowerCase()
+
+        if (/[^a-zA-z]/.test(routeName)) return res.redirect("/");
+
+        const [list] = await CustomList.find({listName: routeNameLower});
+        // console.log(list)
+        
+        if (!list) {
+            const task1 = new Task({
+                task: "Tasks list",
+            });
+            const task2 = new Task({
+                task: "X button to delete task.",
+            });
+            const task3 = new Task({
+                task: "Check button do mark as 'done'.",
+            });
+            const newTasksArray = [task1, task2, task3];
+            const listOfWorks = new CustomList({
+                listName: routeNameLower,
+                itemsList: newTasksArray
+            });
+            await listOfWorks.save();
+            return res.redirect("/" + routeName)
+        };
+
+        const falseItems = list.itemsList.filter(item => item.check === false);
+        // console.log(falseItems)
+        const falseTasks = falseItems.map(item => item.task);
+
+        const trueItems = list.itemsList.filter(item => item.check === true);
+        // console.log(trueItems)
+        const trueTasks = trueItems.map(item => item.task)
+
+        res.render("index.ejs", {
+            title: routeNameLower.toUpperCase(),
+            toDos: falseTasks,
+            checkedTask: trueTasks,
+            routeName: routeNameLower,
+        }); 
+    
+    });
+
+    app.post("/:customRoute", async (req, res) => {
+        const routeName = req.params.customRoute;
+        const newTask = req.body.todo;
+
+        if (!newTask) return res.redirect("/" + routeName);
+        if (newTask.length < 1) {return res.redirect("/" + routeName)};
+
+        const [list] = await CustomList.find({listName: routeName});
+
+        const newTaskObject = new Task({
+            task: newTask,
+        });
+        list.itemsList.push(newTaskObject);
+        await list.save()
+
+        res.redirect("/" + routeName);
+    });
+
+    app.get("/:customRoute/delete?:index", async (req, res) => {
+        const customRoute = req.params.customRoute;
+        const index = req.query.index;
+        const [list] = await CustomList.find({listName: customRoute});
+        if (!list) return res.redirect("/" + customRoute);
+        const falseItems = list.itemsList.filter(item => item.check === false)
+        const trueItems = list.itemsList.filter(item => item.check === true)
+        const deleted = falseItems.splice(index, 1);
+        list.itemsList = [...falseItems, ...trueItems];
+        const saveConfirm = await list.save();
+        
+        res.redirect("/" + customRoute)
+    });
+
+    app.get("/:customRoute/check?:index", async (req, res) => {
+        const customRoute = req.params.customRoute;
+        const index = req.query.index;
+        const [customObj] = await CustomList.find({listName: customRoute});
+        if (!customObj) return res.redirect("/" + customRoute);
+        const falseItems = customObj.itemsList.filter(item => item.check === false)
+        const doneTask = falseItems[index].check = true;
+        // console.log(falseItems);
+        await customObj.save();
+
+        res.redirect("/" + customRoute)
+    });
+
+    app.get("/:customRoute/checked/:index", async (req, res) => {
+        const routeName = req.params.customRoute;
+        const index = req.params.index;
+        console.log(routeName, index)
+        
+        const [list] = await CustomList.find({listName: routeName});
+        const falseList = list.itemsList.filter(i => i.check === false)
+        const trueList = list.itemsList.filter(i => i.check === true)
+        // console.log(trueList);
+        const deleteItem = trueList.splice(index, 1);
+        console.log(deleteItem);
+        list.itemsList = [...trueList, ...falseList];
+        const saveAction = await list.save();
+
+        res.redirect("/" + routeName)
+    })
 
 };
 

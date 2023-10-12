@@ -8,32 +8,61 @@
 </head>
 <body>
     <section class="container">
+        <h1>
+            <%=title%>
+        </h1>
+        <% if (locals.routeName) { %>
+        <form class="form" action="/<%=routeName%>" method="POST">
+            <input type="text" name="todo" placeholder="Write a task to do.">
+            <button class="okBtn" type="submit">OK</button>
+        </form>
+        <% } else { %>
         <form class="form" action="/" method="POST">
             <input type="text" name="todo" placeholder="Write a task to do.">
             <button class="okBtn" type="submit">OK</button>
         </form>
+        <% } %>
         <% if (locals.errorMsg) { %>
             <small class="errorMsg"><%= errorMsg %></small>
         <% } %>
         <div class="listContainer">
             <ul class="list">
                 <% toDos.map( (todo, index) => { %>
+
                     <li class="listItem">
+
                         > <%= todo %>
+
                         <div class="btnContainers">
-                            <a class="checkBtn" href="/check?index=<%=index%>">✓</a>
-                            <a class="deleteBtn" href="/delete?index=<%=index%>">X</a>
+                            <% if (locals.routeName) { %>
+                            <a class="taskBtn checkBtn" href="/<%=routeName%>/check?index=<%=index%>">✓</a>
+                            <a class="taskBtn deleteBtn" href="/<%=routeName%>/delete?index=<%=index%>">X</a>
+                            <% } else { %>
+                            <a class="taskBtn checkBtn" href="/check?index=<%=index%>">✓</a>
+                            <a class="taskBtn deleteBtn" href="/delete?index=<%=index%>">X</a>
+                            <% } %>
                         </div>
+
                     </li>
                 <% }) %>
             </ul>
         </div>
         <% if (locals["checkedTask"].length > 0) { %>
-        <ul>
-            <% checkedTask.map( (task, index) => { %>
-                <li class="doneTask">
-                    > <%= task %>
-                    <a class="doneDeleteBtn" href="/delete/checked?index=<%=index%>">X</a>
+        <ul class="doneList">
+            <% locals.checkedTask.map( (task, index) => { %>
+                <li>
+                    <p class="doneTask">
+                        > <%= task %>
+                    </p>
+                    <% if (locals.routeName) { %>
+                        <div class="btnContainers">
+                            <a class="taskBtn deleteBtn" href="/<%=routeName%>/checked/<%=index%>">X</a>
+                        </div>
+                    <% } else { %>
+                        <div class="btnContainers">
+                            <a class="taskBtn deleteBtn" href="/<%routeName%>/checked/<%=index%>">X</a>
+                        </div>
+                    <% } %>
                 </li>
         <% }) %>
         </ul>
